@@ -1,3 +1,3 @@
 def call(){
-  echo "Jenkins Testing.... on the way"
+  echo "Connected localhost"
 }
