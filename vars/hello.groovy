@@ -1,3 +1,3 @@
-def call(){
-  echo "Connected localhost succcess"
+def call(String Message){
+  echo $Message
 }
