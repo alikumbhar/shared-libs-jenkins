@@ -1,6 +1,18 @@
-def call(String project, String ImageTag,String dockerHubCred,String dockerHubUser){
-  withCredentials([usernamePassword('credentialsId':"dockerHubCred",passwordVariable:'dockerHubPass',usernameVariable: "dockerHubUser")]){
-      sh "docker login -u ${env.dockerHubUser} -p ${env.dockerHubPass}"
+def call(Map config = [:]) {
+    def defaults = [
+        project: '',
+        imageTag: 'latest',
+        dockerHubCred: '',
+        dockerHubUser: ''
+    ]
+    def finalConfig = defaults + config
+
+    if (!finalConfig.project || !finalConfig.dockerHubCred || !finalConfig.dockerHubUser) {
+        error "docker_push requires 'project', 'dockerHubCred', and 'dockerHubUser' parameters."
+    }
+
+    withCredentials([usernamePassword(credentialsId: finalConfig.dockerHubCred, passwordVariable: 'dockerHubPass', usernameVariable: 'dockerHubUserVar')]) {
+        sh "docker login -u ${env.dockerHubUserVar} -p ${env.dockerHubPass}"
     } 
-    sh "docker push ${dockerHubUser}/${project}:$ImageTag"
+    sh "docker push ${finalConfig.dockerHubUser}/${finalConfig.project}:${finalConfig.imageTag}"
 }
