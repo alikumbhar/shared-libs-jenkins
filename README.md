@@ -1,6 +1,16 @@
-# Jenkins Shared Library - DevOps Utilities
+# Jenkins Shared Library - Enterprise DevOps Utilities ⚙️
 
-This shared library provides a set of reusable Groovy functions to standardize common CI/CD tasks across multiple Jenkins pipelines. 
+This repository implements a **Jenkins Shared Library**, providing a standardized set of reusable Groovy functions. The primary goal is to eliminate "Pipeline Sprawl" by centralizing common CI/CD logic, ensuring consistency across hundreds of microservices, and reducing the maintenance overhead of individual `Jenkinsfiles`.
+
+## 🎯 The Problem it Solves
+In large organizations, every team often writes their own pipeline. This leads to:
+- **Inconsistency**: Different teams using different versions of SonarQube or Docker.
+- **Maintenance Nightmare**: Updating a tool version requires editing hundreds of `Jenkinsfiles`.
+- **Security Gaps**: Some teams might forget to include security scans.
+
+**This library solves this by providing "Standardized Building Blocks."** Teams simply call the library function, and the DevOps team controls the implementation details centrally.
+
+---
 
 ## 🚀 Getting Started
 
@@ -11,103 +21,73 @@ Add this library to your Jenkins global configuration or your `Jenkinsfile`:
 @Library('shared-libs-jenkins') _
 ```
 
-### Usage Pattern
-All functions in this library use **Parameterized Maps**. Instead of passing arguments in a specific order, you pass a map of key-value pairs. This makes your pipelines more readable and prevents breaking changes when new parameters are added.
+### The "Parameterized Map" Pattern
+To ensure backward compatibility and readability, all functions use a `Map` for configuration. This allows us to add new features to a function without breaking existing pipelines.
 
 ---
 
 ## 🛠 Available Functions
 
-### 📦 Docker Utilities
-
-#### `docker_build(Map config)`
-Builds a Docker image from a Dockerfile in the current directory.
-
-**Parameters:**
-| Parameter | Required | Default | Description |
-| :--- | :---: | :--- | :--- |
-| `projectName` | ✅ | - | Name of the project/image |
-| `dockerHubUser` | ✅ | - | Docker Hub username or registry namespace |
-| `imageTag` | ❌ | `'latest'` | The tag to apply to the image |
+### 📦 Container Lifecycle
+| Function | Purpose | Key Parameters |
+| :--- | :--- | :--- |
+| `docker_build` | Builds a standardized Docker image | `projectName`, `dockerHubUser`, `imageTag` |
+| `docker_push` | Authenticates and pushes to registry | `project`, `dockerHubCred`, `dockerHubUser` |
 
 **Example:**
 ```groovy
-docker_build(
-    projectName: 'auth-service',
-    dockerHubUser: 'alikumbhar',
-    imageTag: '1.0.2'
-)
+docker_build(projectName: 'auth-service', dockerHubUser: 'ali', imageTag: '1.0.2')
+docker_push(project: 'auth-service', dockerHubCred: 'hub-secret', dockerHubUser: 'ali')
 ```
 
-#### `docker_push(Map config)`
-Authenticates with Docker Hub and pushes the built image.
-
-**Parameters:**
-| Parameter | Required | Default | Description |
-| :--- | :---: | :--- | :--- |
-| `project` | ✅ | - | Name of the project/image |
-| `dockerHubUser` | ✅ | - | Docker Hub username |
-| `dockerHubCred` | ✅ | - | Jenkins Credentials ID for Docker Hub |
-| `imageTag` | ❌ | `'latest'` | The tag to push |
+### 🔍 DevSecOps & Quality Gates
+| Function | Purpose | Key Parameters |
+| :--- | :--- | :--- |
+| `analyzeSonar` | Static code analysis & Quality Gates | `sonarQubeAPI`, `projectName`, `projectKey` |
+| `dependencyChecker_owasp` | SCA (Software Composition Analysis) | `scanPath`, `odcInstallation` |
 
 **Example:**
 ```groovy
-docker_push(
-    project: 'auth-service',
-    dockerHubUser: 'alikumbhar',
-    dockerHubCred: 'docker-hub-secret-id',
-    imageTag: '1.0.2'
-)
+analyzeSonar(sonarQubeAPI: 'Sonar-Prod', projectName: 'My-Microservice', projectKey: 'com.company.microservice')
+dependencyChecker_owasp(scanPath: './src')
 ```
 
 ---
 
-### 🔍 Quality & Security Analysis
+## 🌟 Real-World Pipeline Example
 
-#### `analyzeSonar(Map config)`
-Triggers a SonarQube scan for the current project.
+Here is how a professional pipeline looks when using this library:
 
-**Parameters:**
-| Parameter | Required | Default | Description |
-| :--- | :---: | :--- | :--- |
-| `sonarQubeAPI` | ✅ | - | Name of the SonarQube server configured in Jenkins |
-| `projectName` | ✅ | - | Human-readable project name |
-| `projectKey` | ✅ | - | Unique SonarQube project key |
-
-**Example:**
 ```groovy
-analyzeSonar(
-    sonarQubeAPI: 'SonarQube-Server',
-    projectName: 'My-Microservice',
-    projectKey: 'com.company.microservice'
-)
-```
+@Library('shared-libs-jenkins') _
 
-#### `dependencyChecker_owasp(Map config)`
-Performs a dependency scan using the OWASP Dependency-Check tool.
-
-**Parameters:**
-| Parameter | Required | Default | Description |
-| :--- | :---: | :--- | :--- |
-| `scanPath` | ❌ | `'./'` | Path to scan for dependencies |
-| `odcInstallation` | ❌ | `'OWASP'` | Name of the Dependency-Check tool installation in Jenkins |
-
-**Example:**
-```groovy
-dependencyChecker_owasp(
-    scanPath: './src/main/java',
-    odcInstallation: 'OWASP-DC'
-)
+pipeline {
+    agent any
+    stages {
+        stage('Quality & Security') {
+            steps {
+                // Centralized security scanning
+                analyzeSonar(sonarQubeAPI: 'Sonar-Prod', projectName: 'Payment-API', projectKey: 'pay-api')
+                dependencyChecker_owasp(scanPath: './')
+            }
+        }
+        stage('Build & Push') {
+            steps {
+                docker_build(projectName: 'payment-api', dockerHubUser: 'devops-user')
+                docker_push(project: 'payment-api', dockerHubCred: 'hub-cred', dockerHubUser: 'devops-user')
+            }
+        }
+    }
+}
 ```
 
 ---
 
-## ⚠️ Error Handling
-If a required parameter is missing, the library will stop the pipeline and throw a descriptive error:
+## ⚠️ Error Handling & Validation
+The library implements strict validation. If a required parameter is missing, it will fail the build early with a clear message:
 `docker_build requires 'projectName' and 'dockerHubUser' parameters.`
 
 ## 📝 Contribution
 1. Create a new feature branch.
-2. Add your Groovy script to the `vars/` folder.
-3. Ensure you use the `def call(Map config = [:])` pattern.
-4. Update this `README.md` with the new function details.
+2. Add your Groovy script to the `vars/` folder using the `def call(Map config = [:])` pattern.
+3. Update the function table in this `README.md`.
